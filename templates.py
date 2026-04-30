@@ -2,7 +2,7 @@
 # ayu desc: Менеджер быстрых шаблонов сообщений
 # ayu author: JesterSingularity
 # ayu version: 1.0.0
-# ayu icon: https://raw.githubusercontent.com/JesterSir/SingularityRepo/main/icon.png
+# ayu icon: https://raw.githubusercontent.com/JesterSingularity/SingularityRepo/main/icon.png
 
 # meta developer: @JesterSingularity
 # meta name: Templates
