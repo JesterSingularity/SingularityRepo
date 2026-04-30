@@ -1,3 +1,9 @@
+# ayu name: Templates
+# ayu desc: Менеджер быстрых шаблонов сообщений
+# ayu author: JesterSingularity
+# ayu version: 1.0.0
+# ayu icon: https://raw.githubusercontent.com/JesterSingularity/SingularityRepo/refs/heads/main/imgonline-com-ua-Resize-uqmkQQM094qmw.jpg
+
 # meta developer: @JesterSingularity
 # meta name: Templates
 # meta desc: Менеджер быстрых шаблонов с premium emoji и авто-заменой
