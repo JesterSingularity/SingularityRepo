@@ -3,7 +3,7 @@
 # meta desc: Менеджер быстрых шаблонов с premium emoji и авто-заменой
 # meta version: 1.0.0
 # meta author: JesterSingularity
-# meta url: https://raw.githubusercontent.com/JesterSir/SingularityRepo/main/templates.py
+# meta url: https://raw.githubusercontent.com/JesterSingularity/SingularityRepo/refs/heads/main/templates.py
 # meta pic: https://raw.githubusercontent.com/hikariatama/assets/master/hikka_modules/template.png
 
 from .. import loader, utils
