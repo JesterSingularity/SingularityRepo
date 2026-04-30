@@ -1,19 +1,15 @@
 # ayu name: Templates
 # ayu desc: Менеджер быстрых шаблонов сообщений
 # ayu author: JesterSingularity
-# ayu version: 1.0.0
+# ayu version: 1.0.1
 # ayu icon: https://raw.githubusercontent.com/JesterSingularity/SingularityRepo/refs/heads/main/imgonline-com-ua-Resize-uqmkQQM094qmw.jpg
 
 # meta developer: @JesterSingularity
 # meta name: Templates
 # meta desc: Менеджер быстрых шаблонов с premium emoji и авто-заменой
-# meta version: 1.0.0
+# meta version: 1.0.1
 # meta author: JesterSingularity
 # meta url: https://raw.githubusercontent.com/JesterSingularity/SingularityRepo/refs/heads/main/templates.py
-
-from .. import loader, utils
-from telethon.tl.types import MessageEntityCustomEmoji
-import re, json, os
 
 from .. import loader, utils
 from telethon.tl.types import MessageEntityCustomEmoji
@@ -25,8 +21,18 @@ class TemplatesMod(loader.Module):
     """Менеджер быстрых шаблонов"""
 
     strings = {"name": "Templates"}
-
     FILE = "templates.json"
+
+    # 🔹 ЭТО ГЛАВНОЕ — CONFIG ДЛЯ AYUGRAM
+    def __init__(self):
+        self.config = loader.ModuleConfig(
+            loader.ConfigValue(
+                "enabled",
+                True,
+                "Включить автозамену шаблонов",
+                validator=loader.validators.Boolean()
+            )
+        )
 
     # ---------- загрузка ----------
     def load_templates(self):
@@ -149,6 +155,9 @@ class TemplatesMod(loader.Module):
         if not ids:
             return await utils.answer(message, "❌ Нет premium emoji")
 
+        if cmd not in self.templates:
+            return await utils.answer(message, "❌ Шаблон не найден")
+
         self.templates[cmd]["emoji_ids"] = ids
         self.save_templates()
 
@@ -160,6 +169,9 @@ class TemplatesMod(loader.Module):
 
     @loader.watcher(outgoing=True)
     async def watcher(self, message):
+        if not self.config["enabled"]:
+            return
+
         text = message.raw_text.strip()
 
         for key, value in self.templates.items():
