@@ -1,0 +1,12 @@
+{
+  "modules": [
+    {
+      "name": "Templates",
+      "description": "Менеджер быстрых шаблонов сообщений",
+      "author": "JesterSingularity",
+      "version": "1.0.0",
+      "icon": "https://raw.githubusercontent.com/JesterSir/SingularityRepo/main/icon.png",
+      "url": "https://raw.githubusercontent.com/JesterSir/SingularityRepo/main/templates.py"
+    }
+  ]
+}
