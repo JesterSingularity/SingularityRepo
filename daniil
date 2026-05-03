@@ -1,2 +1,12 @@
-! DOCTYPE HTML
-<h1> ДАНЯ ЛОХ
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Огромная надпись</title>
+</head>
+<body>
+    <h1 style="font-size: 100px; text-align: center; margin-top: 50px;">
+        ДАНЯ ЛОХ
+    </h1>
+</body>
+</html>
