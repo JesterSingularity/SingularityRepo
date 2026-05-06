@@ -1,8 +1,6 @@
 from .. import loader, utils
 from telethon.tl.types import MessageEntityCustomEmoji
 import re
-import json
-import os
 
 
 @loader.tds
@@ -11,44 +9,22 @@ class ManagerSingularka(loader.Module):
 
     strings = {"name": "ManagerSingularka"}
 
-    BASE_DIR = os.path.dirname(__file__)
-    FILE = os.path.join(BASE_DIR, "templates.json")
-
-    # 👉 ВСТАВЬ СЮДА RAW ССЫЛКУ
     UPDATE_URL = "https://raw.githubusercontent.com/JesterSingularity/SingularityRepo/main/ManagerSingularka.py"
 
-    # =========================
-    #        ЗАГРУЗКА
-    # =========================
-    def load_templates(self):
-        if not os.path.exists(self.FILE):
-            return {}
-
-        try:
-            with open(self.FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return {}
-
-    def save_templates(self):
-        try:
-            with open(self.FILE, "w", encoding="utf-8") as f:
-                json.dump(self.templates, f, ensure_ascii=False, indent=4)
-        except Exception:
-            pass
-
     async def client_ready(self, client, db):
-        self.templates = self.load_templates()
+        self.db = db
+        self.templates = self.db.get("ManagerSingularka", "templates", {})
+
+    def save(self):
+        self.db.set("ManagerSingularka", "templates", self.templates)
 
     # =========================
     #         UPDATE
     # =========================
     async def updatecmd(self, message):
-        """Обновить модуль"""
         await utils.answer(message, "🔄 Обновляю модуль...")
 
         try:
-            # вызываем встроенный loadmod
             await self.allmodules.commands["loadmod"](
                 await message.reply(self.UPDATE_URL)
             )
@@ -94,7 +70,6 @@ class ManagerSingularka(loader.Module):
     # =========================
 
     async def addtplcmd(self, message):
-        """ .addtpl .cmd | текст """
         args = utils.get_args_raw(message)
 
         if "|" not in args:
@@ -104,31 +79,23 @@ class ManagerSingularka(loader.Module):
         cmd = cmd.strip()
         text = text.strip()
 
-        if not cmd:
-            return await utils.answer(message, "❌ Укажи команду")
+        self.templates[cmd] = {"text": text, "emoji_ids": []}
+        self.save()
 
-        self.templates[cmd] = {
-            "text": text,
-            "emoji_ids": []
-        }
-
-        self.save_templates()
         await utils.answer(message, f"✅ Шаблон {cmd} добавлен")
 
     async def deltplcmd(self, message):
-        """ .deltpl .cmd """
         cmd = utils.get_args_raw(message).strip()
 
         if cmd not in self.templates:
             return await utils.answer(message, "❌ Шаблон не найден")
 
         self.templates.pop(cmd)
-        self.save_templates()
+        self.save()
 
         await utils.answer(message, f"🗑 Удалён {cmd}")
 
     async def listtplcmd(self, message):
-        """ список шаблонов """
         if not self.templates:
             return await utils.answer(message, "📭 Шаблонов нет")
 
@@ -139,7 +106,6 @@ class ManagerSingularka(loader.Module):
         await utils.answer(message, text)
 
     async def edittplcmd(self, message):
-        """ .edittpl .cmd | текст """
         args = utils.get_args_raw(message)
 
         if "|" not in args:
@@ -153,12 +119,11 @@ class ManagerSingularka(loader.Module):
             return await utils.answer(message, "❌ Шаблон не найден")
 
         self.templates[cmd]["text"] = text
-        self.save_templates()
+        self.save()
 
         await utils.answer(message, f"✏️ Обновлён {cmd}")
 
     async def setemojicmd(self, message):
-        """ .setemoji .cmd (ответ на сообщение с emoji) """
         cmd = utils.get_args_raw(message).strip()
 
         if cmd not in self.templates:
@@ -178,7 +143,7 @@ class ManagerSingularka(loader.Module):
             return await utils.answer(message, "❌ Нет premium emoji")
 
         self.templates[cmd]["emoji_ids"] = ids
-        self.save_templates()
+        self.save()
 
         await utils.answer(message, "😎 Emoji сохранены")
 
