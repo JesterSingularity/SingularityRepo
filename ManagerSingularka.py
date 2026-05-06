@@ -16,7 +16,7 @@ class ManagerSingularka(loader.Module):
     FILE = os.path.join(BASE_DIR, "templates.json")
 
     # 🔗 ВСТАВЬ СЮДА СВОЮ RAW ССЫЛКУ
-    UPDATE_URL = "https://raw.githubusercontent.com/USER/REPO/main/ManagerSingularka.py"
+    UPDATE_URL = "https://raw.githubusercontent.com/JesterSingularity/SingularityRepo/refs/heads/main/ManagerSingularka.py"
 
     # =========================
     #        ЗАГРУЗКА
