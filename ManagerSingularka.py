@@ -21,7 +21,7 @@ class ManagerSingularka(loader.Module):
     # =========================
     #         UPDATE
     # =========================
-    async def updatecmd(self, message):
+    async def updatemodcmd(self, message):
         await utils.answer(message, "🔄 Обновляю модуль...")
 
         try:
