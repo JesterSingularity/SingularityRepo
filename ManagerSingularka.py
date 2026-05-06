@@ -1,46 +1,89 @@
-# ayu name: Templates
-# ayu desc: Менеджер быстрых шаблонов сообщений
-# ayu author: JesterSingularity
-# ayu version: 1.0.0
-
-# meta developer: @JesterSingularity
-# meta name: Templates
-# meta desc: Менеджер быстрых шаблонов с premium emoji
-# meta version: 1.0.0
-# meta author: JesterSingularity
-
 from .. import loader, utils
 from telethon.tl.types import MessageEntityCustomEmoji
-import re, json, os
+import re
+import json
+import os
+import requests
 
 
 @loader.tds
-class TemplatesMod(loader.Module):
+class ManagerSingularka(loader.Module):
     """Менеджер быстрых шаблонов"""
 
-    strings = {"name": "Templates"}
+    strings = {"name": "ManagerSingularka"}
 
-    FILE = "templates.json"
+    BASE_DIR = os.path.dirname(__file__)
+    FILE = os.path.join(BASE_DIR, "templates.json")
 
-    # ---------- загрузка ----------
+    # 🔗 ВСТАВЬ СЮДА СВОЮ RAW ССЫЛКУ
+    UPDATE_URL = "https://raw.githubusercontent.com/USER/REPO/main/ManagerSingularka.py"
+
+    # =========================
+    #        ЗАГРУЗКА
+    # =========================
     def load_templates(self):
         if not os.path.exists(self.FILE):
             return {}
-        with open(self.FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+
+        try:
+            with open(self.FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {}
 
     def save_templates(self):
-        with open(self.FILE, "w", encoding="utf-8") as f:
-            json.dump(self.templates, f, ensure_ascii=False, indent=4)
+        try:
+            with open(self.FILE, "w", encoding="utf-8") as f:
+                json.dump(self.templates, f, ensure_ascii=False, indent=4)
+        except Exception:
+            pass
 
     async def client_ready(self, client, db):
         self.templates = self.load_templates()
 
-    # ---------- премиум эмодзи ----------
+    # =========================
+    #     UPDATE КОМАНДА
+    # =========================
+    async def updatecmd(self, message):
+        """Обновить модуль"""
+        await utils.answer(message, "🔄 Обновляю модуль...")
+
+        try:
+            r = requests.get(self.UPDATE_URL)
+            if r.status_code != 200:
+                return await utils.answer(message, "❌ Не удалось скачать обновление")
+
+            code = r.text
+
+            path = os.path.abspath(__file__)
+
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(code)
+
+            await utils.answer(message, "✅ Обновлено! Перезагружаю...")
+
+            # перезагрузка модуля
+            await self.reload()
+
+        except Exception as e:
+            await utils.answer(message, f"❌ Ошибка:\n{e}")
+
+    async def reload(self):
+        """Перезагрузка модуля"""
+        try:
+            from .. import loader
+            loader.reload_modules()
+        except:
+            pass
+
+    # =========================
+    #     PREMIUM EMOJI
+    # =========================
     def insert_premium_emojis(self, text, emoji_ids):
         entities = []
         pattern = r":(\d+):"
         matches = list(re.finditer(pattern, text))
+
         shift = 0
 
         for m in matches:
@@ -49,6 +92,7 @@ class TemplatesMod(loader.Module):
                 continue
 
             emoji_id = int(emoji_ids[i])
+
             start = m.start() - shift
             end = m.end() - shift
 
@@ -61,16 +105,16 @@ class TemplatesMod(loader.Module):
                     document_id=emoji_id
                 )
             )
+
             shift += (end - start - 1)
 
         return text, entities
 
-    # =========================================================
-    #                     КОМАНДЫ
-    # =========================================================
+    # =========================
+    #         КОМАНДЫ
+    # =========================
 
     async def addtplcmd(self, message):
-        """ .addtpl .cmd | текст """
         args = utils.get_args_raw(message)
 
         if "|" not in args:
@@ -86,18 +130,17 @@ class TemplatesMod(loader.Module):
         await utils.answer(message, f"✅ Шаблон {cmd} добавлен")
 
     async def deltplcmd(self, message):
-        """ .deltpl .cmd """
-        cmd = utils.get_args_raw(message)
+        cmd = utils.get_args_raw(message).strip()
 
         if cmd not in self.templates:
             return await utils.answer(message, "❌ Шаблон не найден")
 
         self.templates.pop(cmd)
         self.save_templates()
+
         await utils.answer(message, f"🗑 Удалён {cmd}")
 
     async def listtplcmd(self, message):
-        """ список шаблонов """
         if not self.templates:
             return await utils.answer(message, "📭 Шаблонов нет")
 
@@ -108,7 +151,6 @@ class TemplatesMod(loader.Module):
         await utils.answer(message, text)
 
     async def edittplcmd(self, message):
-        """ .edittpl .cmd | текст """
         args = utils.get_args_raw(message)
 
         if "|" not in args:
@@ -127,15 +169,14 @@ class TemplatesMod(loader.Module):
         await utils.answer(message, f"✏️ Обновлён {cmd}")
 
     async def setemojicmd(self, message):
-        """Ответь на сообщение с premium emoji"""
-        cmd = utils.get_args_raw(message)
+        cmd = utils.get_args_raw(message).strip()
 
         if cmd not in self.templates:
             return await utils.answer(message, "❌ Шаблон не найден")
 
         reply = await message.get_reply_message()
         if not reply:
-            return await utils.answer(message, "Ответь на сообщение с emoji")
+            return await utils.answer(message, "❌ Ответь на сообщение с emoji")
 
         ids = []
         if reply.entities:
@@ -151,18 +192,24 @@ class TemplatesMod(loader.Module):
 
         await utils.answer(message, "😎 Emoji сохранены")
 
-    # =========================================================
-    #                    АВТОЗАМЕНА
-    # =========================================================
+    # =========================
+    #        АВТОЗАМЕНА
+    # =========================
 
     @loader.watcher(outgoing=True)
     async def watcher(self, message):
-        text = message.raw_text.strip()
+        text = (message.raw_text or "").strip()
 
         for key, value in self.templates.items():
-            if text.startswith(key):
+            if text == key or text.startswith(key + " "):
                 final_text, entities = self.insert_premium_emojis(
-                    value["text"], value.get("emoji_ids", [])
+                    value.get("text", ""),
+                    value.get("emoji_ids", [])
                 )
-                await message.edit(final_text, formatting_entities=entities)
+
+                try:
+                    await message.edit(final_text, formatting_entities=entities)
+                except:
+                    await message.edit(final_text)
+
                 return
