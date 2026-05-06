@@ -3,7 +3,6 @@ from telethon.tl.types import MessageEntityCustomEmoji
 import re
 import json
 import os
-import requests
 
 
 @loader.tds
@@ -15,8 +14,8 @@ class ManagerSingularka(loader.Module):
     BASE_DIR = os.path.dirname(__file__)
     FILE = os.path.join(BASE_DIR, "templates.json")
 
-    # 🔗 ВСТАВЬ СЮДА СВОЮ RAW ССЫЛКУ
-    UPDATE_URL = "https://raw.githubusercontent.com/JesterSingularity/SingularityRepo/refs/heads/main/ManagerSingularka.py"
+    # 👉 ВСТАВЬ СЮДА RAW ССЫЛКУ
+    UPDATE_URL = "https://raw.githubusercontent.com/JesterSingularity/SingularityRepo/main/ManagerSingularka.py"
 
     # =========================
     #        ЗАГРУЗКА
@@ -42,39 +41,19 @@ class ManagerSingularka(loader.Module):
         self.templates = self.load_templates()
 
     # =========================
-    #     UPDATE КОМАНДА
+    #         UPDATE
     # =========================
     async def updatecmd(self, message):
         """Обновить модуль"""
         await utils.answer(message, "🔄 Обновляю модуль...")
 
         try:
-            r = requests.get(self.UPDATE_URL)
-            if r.status_code != 200:
-                return await utils.answer(message, "❌ Не удалось скачать обновление")
-
-            code = r.text
-
-            path = os.path.abspath(__file__)
-
-            with open(path, "w", encoding="utf-8") as f:
-                f.write(code)
-
-            await utils.answer(message, "✅ Обновлено! Перезагружаю...")
-
-            # перезагрузка модуля
-            await self.reload()
-
+            # вызываем встроенный loadmod
+            await self.allmodules.commands["loadmod"](
+                await message.reply(self.UPDATE_URL)
+            )
         except Exception as e:
             await utils.answer(message, f"❌ Ошибка:\n{e}")
-
-    async def reload(self):
-        """Перезагрузка модуля"""
-        try:
-            from .. import loader
-            loader.reload_modules()
-        except:
-            pass
 
     # =========================
     #     PREMIUM EMOJI
@@ -115,6 +94,7 @@ class ManagerSingularka(loader.Module):
     # =========================
 
     async def addtplcmd(self, message):
+        """ .addtpl .cmd | текст """
         args = utils.get_args_raw(message)
 
         if "|" not in args:
@@ -124,12 +104,19 @@ class ManagerSingularka(loader.Module):
         cmd = cmd.strip()
         text = text.strip()
 
-        self.templates[cmd] = {"text": text, "emoji_ids": []}
-        self.save_templates()
+        if not cmd:
+            return await utils.answer(message, "❌ Укажи команду")
 
+        self.templates[cmd] = {
+            "text": text,
+            "emoji_ids": []
+        }
+
+        self.save_templates()
         await utils.answer(message, f"✅ Шаблон {cmd} добавлен")
 
     async def deltplcmd(self, message):
+        """ .deltpl .cmd """
         cmd = utils.get_args_raw(message).strip()
 
         if cmd not in self.templates:
@@ -141,6 +128,7 @@ class ManagerSingularka(loader.Module):
         await utils.answer(message, f"🗑 Удалён {cmd}")
 
     async def listtplcmd(self, message):
+        """ список шаблонов """
         if not self.templates:
             return await utils.answer(message, "📭 Шаблонов нет")
 
@@ -151,6 +139,7 @@ class ManagerSingularka(loader.Module):
         await utils.answer(message, text)
 
     async def edittplcmd(self, message):
+        """ .edittpl .cmd | текст """
         args = utils.get_args_raw(message)
 
         if "|" not in args:
@@ -169,6 +158,7 @@ class ManagerSingularka(loader.Module):
         await utils.answer(message, f"✏️ Обновлён {cmd}")
 
     async def setemojicmd(self, message):
+        """ .setemoji .cmd (ответ на сообщение с emoji) """
         cmd = utils.get_args_raw(message).strip()
 
         if cmd not in self.templates:
@@ -202,6 +192,11 @@ class ManagerSingularka(loader.Module):
 
         for key, value in self.templates.items():
             if text == key or text.startswith(key + " "):
+
+                if getattr(message, "_tpl_processed", False):
+                    return
+                message._tpl_processed = True
+
                 final_text, entities = self.insert_premium_emojis(
                     value.get("text", ""),
                     value.get("emoji_ids", [])
