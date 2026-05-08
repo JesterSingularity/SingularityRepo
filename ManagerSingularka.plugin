@@ -1,106 +1,76 @@
 # ==AyugramPlugin==
 # @name         ManagerSingularka
-# @version      1.0.0
-# @description  Менеджер быстрых шаблонов с auto-update
+# @version      2.0.0
+# @description  Advanced template engine
 # @author       JesterSingularity
-# @command      addtpl
-# @command      deltpl
-# @command      listtpl
-# @command      edittpl
-# @command      checkupdate
-# @command-desc .addtpl .cmd [text] - добавить шаблон
 # @icon         exteraPlugins/1
 # @min_version  11.12.0
 # ==/AyugramPlugin==
 
 # =========================================================
-#                       ИМПОРТЫ
+#                        IMPORTS
 # =========================================================
 
 import json
 import os
+import random
 import threading
 import time
-import urllib.request
 
+from datetime import datetime
 from typing import Any
 
-from base_plugin import BasePlugin, HookResult, HookStrategy
+from base_plugin import (
+    BasePlugin,
+    HookResult,
+    HookStrategy
+)
+
 from client_utils import send_message
 
 # =========================================================
-#                   META ИНФОРМАЦИЯ
+#                        META
 # =========================================================
 
 __id__ = "ManagerSingularka"
 
 __name__ = "ManagerSingularka"
 
-__description__ = "Менеджер быстрых шаблонов"
+__description__ = "Advanced template engine"
 
 __author__ = "JesterSingularity"
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"
 
 __icon__ = "exteraPlugins/1"
 
 __min_version__ = "11.12.0"
 
 # =========================================================
-#                     CONFIG
+#                       STORAGE
 # =========================================================
-
-CURRENT_VERSION = "1.0.0"
-
-VERSION_URL = (
-    "https://raw.githubusercontent.com/"
-    "JesterSingularity/"
-    "SingularityRepo/"
-    "main/"
-    "version.json"
-)
-
-PLUGIN_DOWNLOAD_URL = (
-    "https://raw.githubusercontent.com/"
-    "JesterSingularity/"
-    "SingularityRepo/"
-    "main/"
-    "ManagerSingularka.plugin"
-)
-
-PLUGIN_FILE_NAME = "ManagerSingularka.plugin"
-
-UPDATE_CHECK_INTERVAL = 600
 
 DATA_FILE = "ManagerSingularka_templates.json"
 
 # =========================================================
-#                  ГЛАВНЫЙ КЛАСС
+#                     MAIN CLASS
 # =========================================================
 
 
 class ManagerSingularkaPlugin(BasePlugin):
 
     # =====================================================
-    #                ЗАГРУЗКА ПЛАГИНА
+    #                    PLUGIN LOAD
     # =====================================================
 
     def on_plugin_load(self):
 
-        # Регистрируем hook
         self.add_on_send_message_hook()
 
-        # Загружаем шаблоны
         self.templates = self.load_templates()
 
-        # Запускаем auto updater
-        threading.Thread(
-            target=self.auto_update_loop,
-            daemon=True
-        ).start()
-
     # =====================================================
-    #                 ЗАГРУЗКА JSON
+    #                    JSON LOAD
     # =====================================================
 
     def load_templates(self):
@@ -119,10 +89,11 @@ class ManagerSingularkaPlugin(BasePlugin):
                 return json.load(f)
 
         except Exception:
+
             return {}
 
     # =====================================================
-    #                 СОХРАНЕНИЕ JSON
+    #                    JSON SAVE
     # =====================================================
 
     def save_templates(self):
@@ -146,119 +117,461 @@ class ManagerSingularkaPlugin(BasePlugin):
             pass
 
     # =====================================================
-    #               AUTO UPDATE LOOP
+    #                  CONDITION ENGINE
     # =====================================================
 
-    def auto_update_loop(self):
+    def check_condition(
+        self,
+        condition
+    ):
 
-        while True:
+        # =============================================
+        # NIGHT
+        # =============================================
 
-            try:
-                self.check_for_updates()
+        if condition == "night":
 
-            except Exception:
-                pass
+            hour = datetime.now().hour
 
-            time.sleep(UPDATE_CHECK_INTERVAL)
+            return (
+                hour >= 22
+                or
+                hour <= 6
+            )
 
-    # =====================================================
-    #               ПРОВЕРКА ОБНОВЛЕНИЙ
-    # =====================================================
+        # =============================================
+        # DAY
+        # =============================================
 
-    def check_for_updates(self):
+        elif condition == "day":
 
-        try:
+            hour = datetime.now().hour
 
-            with urllib.request.urlopen(
-                VERSION_URL
-            ) as response:
+            return (
+                hour >= 7
+                and
+                hour <= 21
+            )
 
-                data = response.read().decode("utf-8")
+        # =============================================
+        # ALWAYS
+        # =============================================
 
-            version_data = json.loads(data)
+        elif condition == "always":
 
-            latest_version = version_data.get("version")
+            return True
 
-            if latest_version != CURRENT_VERSION:
-
-                self.download_update(latest_version)
-
-        except Exception:
-            pass
-
-    # =====================================================
-    #                 СКАЧИВАНИЕ UPDATE
-    # =====================================================
-
-    def download_update(self, latest_version):
-
-        try:
-
-            with urllib.request.urlopen(
-                PLUGIN_DOWNLOAD_URL
-            ) as response:
-
-                plugin_code = response.read().decode("utf-8")
-
-            with open(
-                PLUGIN_FILE_NAME,
-                "w",
-                encoding="utf-8"
-            ) as f:
-
-                f.write(plugin_code)
-
-            send_message({
-                "peer": "me",
-                "message":
-                    "🔥 ManagerSingularka обновлён!\n\n"
-                    f"Новая версия: {latest_version}\n\n"
-                    "♻️ Перезапусти AyuGram"
-            })
-
-        except Exception:
-            pass
+        return False
 
     # =====================================================
-    #               РУЧНАЯ ПРОВЕРКА UPDATE
+    #                 TEMPLATE EXECUTOR
     # =====================================================
 
-    def manual_check_update(self, peer):
+    def execute_template(
+        self,
+        peer,
+        template
+    ):
 
-        try:
+        # =============================================
+        # TEMPLATE REFERENCE
+        # =============================================
 
-            with urllib.request.urlopen(
-                VERSION_URL
-            ) as response:
+        if isinstance(template, str):
 
-                data = response.read().decode("utf-8")
+            # Если это ссылка на template
+            if template in self.templates:
 
-            version_data = json.loads(data)
+                template = self.templates[
+                    template
+                ]
 
-            latest_version = version_data.get("version")
-
-            if latest_version == CURRENT_VERSION:
+            # Иначе обычный текст
+            else:
 
                 send_message({
                     "peer": peer,
-                    "message":
-                        "✅ У тебя последняя версия"
+                    "message": template
                 })
 
                 return
 
-            self.download_update(latest_version)
+        # =============================================
+        # TEMPLATE TYPE
+        # =============================================
 
-        except Exception:
+        template_type = template.get(
+            "type"
+        )
+
+        # =============================================
+        # TEXT
+        # =============================================
+
+        if template_type == "text":
+
+            send_message({
+                "peer": peer,
+                "message": template["text"]
+            })
+
+        # =============================================
+        # RANDOM
+        # =============================================
+
+        elif template_type == "random":
+
+            variants = template.get(
+                "variants",
+                []
+            )
+
+            if not variants:
+                return
+
+            selected = random.choice(
+                variants
+            )
+
+            self.execute_template(
+                peer,
+                selected
+            )
+
+        # =============================================
+        # REPEAT
+        # =============================================
+
+        elif template_type == "repeat":
+
+            count = template.get(
+                "count",
+                1
+            )
+
+            interval = template.get(
+                "interval",
+                0
+            )
+
+            action = template.get(
+                "action"
+            )
+
+            for i in range(count):
+
+                self.execute_template(
+                    peer,
+                    action
+                )
+
+                if interval > 0:
+
+                    time.sleep(
+                        interval
+                    )
+
+        # =============================================
+        # IF
+        # =============================================
+
+        elif template_type == "if":
+
+            condition = template.get(
+                "condition"
+            )
+
+            action = template.get(
+                "action"
+            )
+
+            if self.check_condition(
+                condition
+            ):
+
+                self.execute_template(
+                    peer,
+                    action
+                )
+
+    # =====================================================
+    #                    COMMAND ROUTER
+    # =====================================================
+
+    def handle_command(
+        self,
+        peer,
+        text
+    ):
+
+        # =================================================
+        # .ADDTXT
+        # =================================================
+
+        if text.startswith(".addtxt "):
+
+            raw = text[
+                len(".addtxt "):
+            ].strip()
+
+            if "[" not in raw or "]" not in raw:
+
+                send_message({
+                    "peer": peer,
+                    "message":
+                        "❌ Формат:\n"
+                        ".addtxt .cmd [text]"
+                })
+
+                return True
+
+            cmd = raw.split("[")[0].strip()
+
+            template_text = raw[
+                raw.index("[") + 1:
+                raw.rindex("]")
+            ]
+
+            self.templates[cmd] = {
+                "type": "text",
+                "text": template_text
+            }
+
+            self.save_templates()
 
             send_message({
                 "peer": peer,
                 "message":
-                    "❌ Ошибка проверки обновлений"
+                    f"✅ TEXT шаблон {cmd} сохранён"
             })
 
+            return True
+
+        # =================================================
+        # .ADDRANDOM
+        # =================================================
+
+        elif text.startswith(".addrandom "):
+
+            raw = text[
+                len(".addrandom "):
+            ].strip()
+
+            if "[" not in raw or "]" not in raw:
+
+                send_message({
+                    "peer": peer,
+                    "message":
+                        "❌ Формат:\n"
+                        ".addrandom .cmd [a|b|c]"
+                })
+
+                return True
+
+            cmd = raw.split("[")[0].strip()
+
+            variants_raw = raw[
+                raw.index("[") + 1:
+                raw.rindex("]")
+            ]
+
+            variants = [
+
+                v.strip()
+
+                for v in variants_raw.split("|")
+
+                if v.strip()
+            ]
+
+            self.templates[cmd] = {
+                "type": "random",
+                "variants": variants
+            }
+
+            self.save_templates()
+
+            send_message({
+                "peer": peer,
+                "message":
+                    f"🎲 RANDOM шаблон {cmd} сохранён"
+            })
+
+            return True
+
+        # =================================================
+        # .ADDREP
+        # =================================================
+
+        elif text.startswith(".addrep "):
+
+            raw = text[
+                len(".addrep "):
+            ].strip()
+
+            parts = raw.split(" ", 3)
+
+            if len(parts) < 4:
+
+                send_message({
+                    "peer": peer,
+                    "message":
+                        "❌ Формат:\n"
+                        ".addrep .cmd count interval action"
+                })
+
+                return True
+
+            try:
+
+                cmd = parts[0]
+
+                count = int(parts[1])
+
+                interval = int(parts[2])
+
+                action = parts[3]
+
+                self.templates[cmd] = {
+                    "type": "repeat",
+                    "count": count,
+                    "interval": interval,
+                    "action": action
+                }
+
+                self.save_templates()
+
+                send_message({
+                    "peer": peer,
+                    "message":
+                        f"🔁 REPEAT шаблон {cmd} сохранён"
+                })
+
+            except Exception:
+
+                send_message({
+                    "peer": peer,
+                    "message":
+                        "❌ Ошибка repeat"
+                })
+
+            return True
+
+        # =================================================
+        # .ADDIF
+        # =================================================
+
+        elif text.startswith(".addif "):
+
+            raw = text[
+                len(".addif "):
+            ].strip()
+
+            parts = raw.split(" ", 2)
+
+            if len(parts) < 3:
+
+                send_message({
+                    "peer": peer,
+                    "message":
+                        "❌ Формат:\n"
+                        ".addif .cmd condition action"
+                })
+
+                return True
+
+            cmd = parts[0]
+
+            condition = parts[1]
+
+            action = parts[2]
+
+            self.templates[cmd] = {
+                "type": "if",
+                "condition": condition,
+                "action": action
+            }
+
+            self.save_templates()
+
+            send_message({
+                "peer": peer,
+                "message":
+                    f"🧠 IF шаблон {cmd} сохранён"
+            })
+
+            return True
+
+        # =================================================
+        # .LISTTPL
+        # =================================================
+
+        elif text == ".listtpl":
+
+            if not self.templates:
+
+                send_message({
+                    "peer": peer,
+                    "message":
+                        "📭 Шаблонов нет"
+                })
+
+                return True
+
+            result = (
+                "📚 Шаблоны:\n\n"
+            )
+
+            for cmd, data in self.templates.items():
+
+                result += (
+                    f"{cmd} "
+                    f"({data.get('type')})\n"
+                )
+
+            send_message({
+                "peer": peer,
+                "message": result
+            })
+
+            return True
+
+        # =================================================
+        # .DELTPL
+        # =================================================
+
+        elif text.startswith(".deltpl "):
+
+            cmd = text[
+                len(".deltpl "):
+            ].strip()
+
+            if cmd not in self.templates:
+
+                send_message({
+                    "peer": peer,
+                    "message":
+                        "❌ Шаблон не найден"
+                })
+
+                return True
+
+            del self.templates[cmd]
+
+            self.save_templates()
+
+            send_message({
+                "peer": peer,
+                "message":
+                    f"🗑 Шаблон {cmd} удалён"
+            })
+
+            return True
+
+        return False
+
     # =====================================================
-    #                ОСНОВНОЙ HOOK
+    #                      MAIN HOOK
     # =====================================================
 
     def on_send_message_hook(
@@ -277,219 +590,47 @@ class ManagerSingularkaPlugin(BasePlugin):
 
         text = msg.strip()
 
-        # =================================================
-        #                .addtpl
-        # =================================================
+        # =============================================
+        # COMMANDS
+        # =============================================
 
-        if text.startswith(".addtpl "):
+        handled = self.handle_command(
+            params.peer,
+            text
+        )
 
-            raw = text[len(".addtpl "):].strip()
-
-            if "[" not in raw or "]" not in raw:
-
-                send_message({
-                    "peer": params.peer,
-                    "message":
-                        "❌ Формат:\n"
-                        ".addtpl .cmd [текст]"
-                })
-
-                return HookResult(
-                    strategy=HookStrategy.CANCEL
-                )
-
-            try:
-
-                cmd = raw.split("[")[0].strip()
-
-                template_text = raw[
-                    raw.index("[") + 1:
-                    raw.rindex("]")
-                ]
-
-                self.templates[cmd] = template_text
-
-                self.save_templates()
-
-                send_message({
-                    "peer": params.peer,
-                    "message":
-                        f"✅ Шаблон {cmd} сохранён"
-                })
-
-            except Exception:
-
-                send_message({
-                    "peer": params.peer,
-                    "message":
-                        "❌ Ошибка сохранения"
-                })
+        if handled:
 
             return HookResult(
                 strategy=HookStrategy.CANCEL
             )
 
-        # =================================================
-        #                .deltpl
-        # =================================================
-
-        if text.startswith(".deltpl "):
-
-            cmd = text[len(".deltpl "):].strip()
-
-            if cmd not in self.templates:
-
-                send_message({
-                    "peer": params.peer,
-                    "message":
-                        "❌ Шаблон не найден"
-                })
-
-                return HookResult(
-                    strategy=HookStrategy.CANCEL
-                )
-
-            del self.templates[cmd]
-
-            self.save_templates()
-
-            send_message({
-                "peer": params.peer,
-                "message":
-                    f"🗑 Шаблон {cmd} удалён"
-            })
-
-            return HookResult(
-                strategy=HookStrategy.CANCEL
-            )
-
-        # =================================================
-        #                .listtpl
-        # =================================================
-
-        if text == ".listtpl":
-
-            if not self.templates:
-
-                send_message({
-                    "peer": params.peer,
-                    "message":
-                        "📭 Шаблонов нет"
-                })
-
-                return HookResult(
-                    strategy=HookStrategy.CANCEL
-                )
-
-            result = "📚 Шаблоны:\n\n"
-
-            for cmd in self.templates:
-                result += f"• {cmd}\n"
-
-            send_message({
-                "peer": params.peer,
-                "message": result
-            })
-
-            return HookResult(
-                strategy=HookStrategy.CANCEL
-            )
-
-        # =================================================
-        #                .edittpl
-        # =================================================
-
-        if text.startswith(".edittpl "):
-
-            raw = text[len(".edittpl "):].strip()
-
-            if "[" not in raw or "]" not in raw:
-
-                send_message({
-                    "peer": params.peer,
-                    "message":
-                        "❌ Формат:\n"
-                        ".edittpl .cmd [текст]"
-                })
-
-                return HookResult(
-                    strategy=HookStrategy.CANCEL
-                )
-
-            try:
-
-                cmd = raw.split("[")[0].strip()
-
-                new_text = raw[
-                    raw.index("[") + 1:
-                    raw.rindex("]")
-                ]
-
-                if cmd not in self.templates:
-
-                    send_message({
-                        "peer": params.peer,
-                        "message":
-                            "❌ Шаблон не найден"
-                    })
-
-                    return HookResult(
-                        strategy=HookStrategy.CANCEL
-                    )
-
-                self.templates[cmd] = new_text
-
-                self.save_templates()
-
-                send_message({
-                    "peer": params.peer,
-                    "message":
-                        f"✏️ Шаблон {cmd} обновлён"
-                })
-
-            except Exception:
-
-                send_message({
-                    "peer": params.peer,
-                    "message":
-                        "❌ Ошибка изменения"
-                })
-
-            return HookResult(
-                strategy=HookStrategy.CANCEL
-            )
-
-        # =================================================
-        #              .checkupdate
-        # =================================================
-
-        if text == ".checkupdate":
-
-            self.manual_check_update(params.peer)
-
-            return HookResult(
-                strategy=HookStrategy.CANCEL
-            )
-
-        # =================================================
-        #                АВТОЗАМЕНА
-        # =================================================
+        # =============================================
+        # TEMPLATE EXECUTION
+        # =============================================
 
         if text in self.templates:
 
-            template_text = self.templates[text]
+            template = self.templates[
+                text
+            ]
 
-            send_message({
-                "peer": params.peer,
-                "message": template_text
-            })
+            # Запускаем executor
+            threading.Thread(
+                target=self.execute_template,
+                args=(
+                    params.peer,
+                    template
+                ),
+                daemon=True
+            ).start()
 
             return HookResult(
                 strategy=HookStrategy.CANCEL
             )
 
-        # =================================================
-        #                 НИЧЕГО
-        # =================================================
+        # =============================================
+        # NOTHING
+        # =============================================
 
         return HookResult()
