@@ -1,0 +1,143 @@
+# =========================================================
+#                  AUTO UPDATE CONFIG
+# =========================================================
+
+# Текущая версия плагина
+CURRENT_VERSION = "1.0.0"
+
+# Ссылка на version.json
+VERSION_URL = (
+    "https://raw.githubusercontent.com/"
+    "JesterSingularity/"
+    "SingularityRepo/"
+    "main/"
+    "version.json"
+)
+
+# Куда скачивать новый plugin
+PLUGIN_DOWNLOAD_URL = (
+    "https://raw.githubusercontent.com/"
+    "JesterSingularity/"
+    "SingularityRepo/"
+    "main/"
+    "ManagerSingularka.plugin"
+)
+
+# Имя локального plugin файла
+PLUGIN_FILE_NAME = "ManagerSingularka.plugin"
+
+# Проверять обновления каждые X секунд
+UPDATE_CHECK_INTERVAL = 600
+
+
+# =========================================================
+#                       ИМПОРТЫ
+# =========================================================
+
+import urllib.request
+import threading
+import json
+import time
+
+
+# =========================================================
+#              ЗАПУСК АВТООБНОВЛЕНИЯ
+# =========================================================
+
+def on_plugin_load(self):
+
+    # Твои hooks
+    self.add_on_send_message_hook()
+
+    # Загружаем шаблоны
+    self.templates = self.load_templates()
+
+    # Запускаем update checker
+    threading.Thread(
+        target=self.auto_update_loop,
+        daemon=True
+    ).start()
+
+
+# =========================================================
+#                LOOP ПРОВЕРКИ ОБНОВЛЕНИЙ
+# =========================================================
+
+def auto_update_loop(self):
+
+    while True:
+
+        try:
+
+            # Проверяем обновление
+            self.check_for_updates()
+
+        except Exception:
+            pass
+
+        # Ждём
+        time.sleep(UPDATE_CHECK_INTERVAL)
+
+
+# =========================================================
+#               ПРОВЕРКА VERSION.JSON
+# =========================================================
+
+def check_for_updates(self):
+
+    try:
+
+        # Качаем version.json
+        with urllib.request.urlopen(VERSION_URL) as response:
+
+            data = response.read().decode("utf-8")
+
+        version_data = json.loads(data)
+
+        latest_version = version_data.get("version")
+
+        # Если версия новее
+        if latest_version != CURRENT_VERSION:
+
+            # Скачиваем update
+            self.download_update(latest_version)
+
+    except Exception:
+        pass
+
+
+# =========================================================
+#                 СКАЧИВАНИЕ UPDATE
+# =========================================================
+
+def download_update(self, latest_version):
+
+    try:
+
+        # Качаем plugin
+        with urllib.request.urlopen(
+            PLUGIN_DOWNLOAD_URL
+        ) as response:
+
+            plugin_code = response.read().decode("utf-8")
+
+        # Перезаписываем текущий plugin
+        with open(
+            PLUGIN_FILE_NAME,
+            "w",
+            encoding="utf-8"
+        ) as f:
+
+            f.write(plugin_code)
+
+        # Уведомление
+        send_message({
+            "peer": "me",
+            "message":
+                "🔥 ManagerSingularka обновлён!\n"
+                f"Новая версия: {latest_version}\n\n"
+                "♻️ Перезапусти AyuGram"
+        })
+
+    except Exception:
+        pass
