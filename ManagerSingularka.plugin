@@ -1,6 +1,6 @@
 # ==AyugramPlugin==
 # @name         ManagerSingularka
-# @version      2.0.0
+# @version      2.1.0
 # @description  Advanced template engine
 # @author       JesterSingularity
 # @icon         exteraPlugins/1
@@ -41,17 +41,25 @@ __description__ = "Advanced template engine"
 
 __author__ = "JesterSingularity"
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 
 __icon__ = "exteraPlugins/1"
 
 __min_version__ = "11.12.0"
 
 # =========================================================
-#                        STORAGE
+#                       STORAGE
 # =========================================================
 
-DATA_FILE = "ManagerSingularka_templates.json"
+DATA_DIR = (
+    "/storage/emulated/0/"
+    "AyuGram/"
+)
+
+DATA_FILE = (
+    DATA_DIR +
+    "ManagerSingularka_templates.json"
+)
 
 # =========================================================
 #                      MAIN CLASS
@@ -80,9 +88,13 @@ class ManagerSingularkaPlugin(BasePlugin):
         "ManagerSingularka.plugin"
     )
 
-    CURRENT_VERSION = "2.0.0"
+    CURRENT_VERSION = "2.1.0"
 
-    PLUGIN_FILE = "ManagerSingularka.plugin"
+    PLUGIN_FILE = (
+        "/storage/emulated/0/"
+        "AyuGram/"
+        "ManagerSingularka.plugin"
+    )
 
     # =====================================================
     #                    PLUGIN LOAD
@@ -92,9 +104,19 @@ class ManagerSingularkaPlugin(BasePlugin):
 
         self.add_on_send_message_hook()
 
+        # создаём папку
+        os.makedirs(
+            DATA_DIR,
+            exist_ok=True
+        )
+
+        # lock для thread-safe save
+        self.save_lock = threading.Lock()
+
+        # загружаем templates
         self.templates = self.load_templates()
 
-        # updater loop
+        # update loop
         threading.Thread(
             target=self.auto_update_loop,
             daemon=True
@@ -131,18 +153,20 @@ class ManagerSingularkaPlugin(BasePlugin):
 
         try:
 
-            with open(
-                DATA_FILE,
-                "w",
-                encoding="utf-8"
-            ) as f:
+            with self.save_lock:
 
-                json.dump(
-                    self.templates,
-                    f,
-                    ensure_ascii=False,
-                    indent=4
-                )
+                with open(
+                    DATA_FILE,
+                    "w",
+                    encoding="utf-8"
+                ) as f:
+
+                    json.dump(
+                        self.templates,
+                        f,
+                        ensure_ascii=False,
+                        indent=4
+                    )
 
         except Exception:
             pass
@@ -232,10 +256,6 @@ class ManagerSingularkaPlugin(BasePlugin):
         condition
     ):
 
-        # =============================================
-        # NIGHT
-        # =============================================
-
         if condition == "night":
 
             hour = datetime.now().hour
@@ -246,10 +266,6 @@ class ManagerSingularkaPlugin(BasePlugin):
                 hour <= 6
             )
 
-        # =============================================
-        # DAY
-        # =============================================
-
         elif condition == "day":
 
             hour = datetime.now().hour
@@ -259,10 +275,6 @@ class ManagerSingularkaPlugin(BasePlugin):
                 and
                 hour <= 21
             )
-
-        # =============================================
-        # ALWAYS
-        # =============================================
 
         elif condition == "always":
 
@@ -286,14 +298,12 @@ class ManagerSingularkaPlugin(BasePlugin):
 
         if isinstance(template, str):
 
-            # template reference
             if template in self.templates:
 
                 template = self.templates[
                     template
                 ]
 
-            # plain text
             else:
 
                 send_message({
@@ -606,6 +616,32 @@ class ManagerSingularkaPlugin(BasePlugin):
                 "message":
                     f"🧠 IF шаблон {cmd} сохранён"
             })
+
+            return True
+
+        # =================================================
+        # .UPDATE
+        # =================================================
+
+        elif text == ".update":
+
+            try:
+
+                self.check_updates()
+
+                send_message({
+                    "peer": peer,
+                    "message":
+                        "🔄 Проверка обновлений завершена"
+                })
+
+            except Exception as e:
+
+                send_message({
+                    "peer": peer,
+                    "message":
+                        f"❌ Ошибка update:\n{e}"
+                })
 
             return True
 
