@@ -2,6 +2,7 @@
 # pip install aiogram==3.7.0
 
 import asyncio
+import os
 from aiogram import Bot, Dispatcher, F
 from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart
@@ -16,7 +17,7 @@ from aiogram.client.default import DefaultBotProperties
 # НАСТРОЙКИ
 # =========================
 
-TOKEN = "8821644192:AAF1fP8Yqe6FnwY3NXLrTXbDlAmwDLvhhZk"
+TOKEN = os.getenv("BOT_TOKEN")
 
 # ID ГРУППЫ ДЛЯ ОТПРАВКИ АНКЕТ
 GROUP_ID = -1003709910240
