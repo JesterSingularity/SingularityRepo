@@ -16,10 +16,10 @@ from aiogram.client.default import DefaultBotProperties
 # НАСТРОЙКИ
 # =========================
 
-TOKEN = "YOUR_BOT_TOKEN"
+TOKEN = "8821644192:AAF1fP8Yqe6FnwY3NXLrTXbDlAmwDLvhhZk"
 
 # ID ГРУППЫ ДЛЯ ОТПРАВКИ АНКЕТ
-GROUP_ID = -1001234567890
+GROUP_ID = -1003709910240
 
 # =========================
 
