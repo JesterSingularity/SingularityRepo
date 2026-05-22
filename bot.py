@@ -1,7 +1,14 @@
 # -*- coding: utf-8 -*-
 
 import os
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
 from aiogram import Bot, Dispatcher, executor, types
+
+# =====================================
+# TOKEN
+# =====================================
 
 TOKEN = os.getenv("BOT_TOKEN")
 
@@ -13,9 +20,9 @@ dp = Dispatcher(bot)
 
 user_data = {}
 
-# =========================
+# =====================================
 # КНОПКИ
-# =========================
+# =====================================
 
 kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
 
@@ -27,9 +34,9 @@ kb.add(btn1)
 kb.add(btn2)
 kb.add(btn3)
 
-# =========================
+# =====================================
 # START
-# =========================
+# =====================================
 
 @dp.message_handler(commands=["start"])
 async def start(message: types.Message):
@@ -42,9 +49,9 @@ async def start(message: types.Message):
 
     await message.answer(text, reply_markup=kb)
 
-# =========================
+# =====================================
 # ПРАВИЛА
-# =========================
+# =====================================
 
 @dp.message_handler(lambda message: message.text == "📜 Порядок сделки")
 async def rules(message: types.Message):
@@ -75,9 +82,9 @@ async def rules(message: types.Message):
 
     await message.answer(text)
 
-# =========================
+# =====================================
 # СКУПКА
-# =========================
+# =====================================
 
 @dp.message_handler(lambda message: message.text == "💰 Скупка")
 async def buy_start(message: types.Message):
@@ -88,22 +95,16 @@ async def buy_start(message: types.Message):
 
     await message.answer("Введите @юзернейм гаранта:")
 
-    dp.register_message_handler(
-        process_guarantor_buy,
-        state="*"
-    )
-
-async def process_guarantor_buy(message: types.Message):
-
-    if message.from_user.id not in user_data:
-        return
-
-    if user_data[message.from_user.id].get("deal_type") != "Скупка":
-        return
+@dp.message_handler(lambda message:
+    message.from_user.id in user_data and
+    user_data[message.from_user.id]["deal_type"] == "Скупка" and
+    "guarantor" not in user_data[message.from_user.id]
+)
+async def process_buy(message: types.Message):
 
     guarantor = message.text
 
-    username = message.from_user.username
+    username = message.from_user.username or "без_username"
     user_id = message.from_user.id
 
     text = f"""
@@ -123,9 +124,9 @@ async def process_guarantor_buy(message: types.Message):
 
     del user_data[message.from_user.id]
 
-# =========================
+# =====================================
 # ОБМЕН
-# =========================
+# =====================================
 
 @dp.message_handler(lambda message: message.text == "🔄 Обмен между участниками")
 async def exchange_start(message: types.Message):
@@ -136,18 +137,12 @@ async def exchange_start(message: types.Message):
 
     await message.answer("Введите @юзернейм гаранта:")
 
-    dp.register_message_handler(
-        process_exchange_guarantor,
-        state="*"
-    )
-
+@dp.message_handler(lambda message:
+    message.from_user.id in user_data and
+    user_data[message.from_user.id]["deal_type"] == "Обмен" and
+    "guarantor" not in user_data[message.from_user.id]
+)
 async def process_exchange_guarantor(message: types.Message):
-
-    if message.from_user.id not in user_data:
-        return
-
-    if user_data[message.from_user.id].get("deal_type") != "Обмен":
-        return
 
     user_data[message.from_user.id]["guarantor"] = message.text
 
@@ -155,20 +150,17 @@ async def process_exchange_guarantor(message: types.Message):
         "Введите @юзернейм второго участника:"
     )
 
-    dp.register_message_handler(
-        process_exchange_user,
-        state="*"
-    )
-
+@dp.message_handler(lambda message:
+    message.from_user.id in user_data and
+    user_data[message.from_user.id]["deal_type"] == "Обмен" and
+    "guarantor" in user_data[message.from_user.id]
+)
 async def process_exchange_user(message: types.Message):
-
-    if message.from_user.id not in user_data:
-        return
 
     guarantor = user_data[message.from_user.id]["guarantor"]
     second_user = message.text
 
-    username = message.from_user.username
+    username = message.from_user.username or "без_username"
     user_id = message.from_user.id
 
     text = f"""
@@ -189,9 +181,28 @@ async def process_exchange_user(message: types.Message):
 
     del user_data[message.from_user.id]
 
-# =========================
+# =====================================
+# FAKE WEB SERVER FOR RENDER
+# =====================================
+
+class Handler(BaseHTTPRequestHandler):
+
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot is running")
+
+def run_web():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(("0.0.0.0", port), Handler)
+    server.serve_forever()
+
+# =====================================
 # RUN
-# =========================
+# =====================================
 
 if __name__ == "__main__":
+
+    threading.Thread(target=run_web).start()
+
     executor.start_polling(dp, skip_updates=True)
