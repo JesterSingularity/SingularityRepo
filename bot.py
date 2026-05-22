@@ -62,10 +62,10 @@ async def rules(message: types.Message):
 1. Оставьте заявку через нашего бота.
 
 • Если это скупка — укажите:
-<code>@юзернейм гаранта</code>
+<code>@юзернейм гаранта (тот от кого вы перешли в бота)</code>
 
 • Если это обмен между участниками — укажите:
-<code>@юзернейм гаранта</code>
+<code>@юзернейм гаранта (тот от кого вы перешли в бота</code>
 <code>@юзернейм второго участника сделки</code>
 
 2. После принятия заявки:
@@ -93,7 +93,7 @@ async def buy_start(message: types.Message):
         "deal_type": "Скупка"
     }
 
-    await message.answer("Введите @юзернейм гаранта:")
+    await message.answer("Введите @юзернейм гаранта(от кого вы перешли в бота):")
 
 @dp.message_handler(lambda message:
     message.from_user.id in user_data and
@@ -135,7 +135,7 @@ async def exchange_start(message: types.Message):
         "deal_type": "Обмен"
     }
 
-    await message.answer("Введите @юзернейм гаранта:")
+    await message.answer("Введите @юзернейм гаранта(от кого вы перешли в бота):")
 
 @dp.message_handler(lambda message:
     message.from_user.id in user_data and
@@ -176,7 +176,7 @@ async def process_exchange_user(message: types.Message):
     await bot.send_message(GROUP_ID, text)
 
     await message.answer(
-        "✅ Ваша заявка отправлена администрации."
+        "✅ Ваша заявка отправлена администрации.\nОжидайте ответа гаранта"
     )
 
     del user_data[message.from_user.id]
