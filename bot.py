@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# pip install aiogram==2.25.2
 
+import os
 from aiogram import Bot, Dispatcher, executor, types
 
 TOKEN = os.getenv("BOT_TOKEN")
@@ -35,7 +35,7 @@ kb.add(btn3)
 async def start(message: types.Message):
 
     text = """
-<b>Добро пожаловать в ᥲ᥉tᥱr᥎ᥱⲭ ♡</b>
+<b>Добро пожаловать в astervex ♡</b>
 
 Через этого бота вы можете оставить заявку на проведение безопасной сделки.
 """
@@ -50,7 +50,7 @@ async def start(message: types.Message):
 async def rules(message: types.Message):
 
     text = """
-<b>⟡ порядок проведения сделки ⟡</b>
+<b>✧ порядок проведения сделки ✧</b>
 
 1. Оставьте заявку через нашего бота.
 
@@ -63,14 +63,14 @@ async def rules(message: types.Message):
 
 2. После принятия заявки:
 
-— при скупке сделка проводится в личных сообщениях
+— при скупке сделка проводится в личных сообщениях  
 — при обмене создаётся общая группа со всеми участниками
 
-3. Гарант сопровождает сделку до её полного завершения и следит за безопасностью обеих сторон.
+3. Гарант сопровождает сделку до её полного завершения.
 
-4. После окончания сделки не забудьте оставить отзыв — это помогает развивать репутацию проекта и повышает доверие внутри комьюнити.
+4. После окончания сделки не забудьте оставить отзыв.
 
-Спасибо, что выбираете <b>ᥲ᥉tᥱr᥎ᥱⲭ ♡</b>
+Спасибо, что выбираете <b>astervex ♡</b>
 """
 
     await message.answer(text)
@@ -80,211 +80,118 @@ async def rules(message: types.Message):
 # =========================
 
 @dp.message_handler(lambda message: message.text == "💰 Скупка")
-async def buyout(message: types.Message):
+async def buy_start(message: types.Message):
 
-    user_data[message.from_user.id] = "buy"
+    user_data[message.from_user.id] = {
+        "deal_type": "Скупка"
+    }
+
+    await message.answer("Введите @юзернейм гаранта:")
+
+    dp.register_message_handler(
+        process_guarantor_buy,
+        state="*"
+    )
+
+async def process_guarantor_buy(message: types.Message):
+
+    if message.from_user.id not in user_data:
+        return
+
+    if user_data[message.from_user.id].get("deal_type") != "Скупка":
+        return
+
+    guarantor = message.text
+
+    username = message.from_user.username
+    user_id = message.from_user.id
+
+    text = f"""
+<b>Новая заявка на скупку</b>
+
+👤 Пользователь: @{username}
+🆔 ID: <code>{user_id}</code>
+
+🛡 Гарант: {guarantor}
+"""
+
+    await bot.send_message(GROUP_ID, text)
 
     await message.answer(
-        "Введите @юзернейм гаранта:"
+        "✅ Ваша заявка отправлена администрации."
     )
+
+    del user_data[message.from_user.id]
 
 # =========================
 # ОБМЕН
 # =========================
 
 @dp.message_handler(lambda message: message.text == "🔄 Обмен между участниками")
-async def exchange(message: types.Message):
+async def exchange_start(message: types.Message):
 
-    user_data[message.from_user.id] = "exchange"
+    user_data[message.from_user.id] = {
+        "deal_type": "Обмен"
+    }
 
-    await message.answer(
-        "Введите данные в формате:\n\n"
-        "@гарант\n"
-        "@второй_участник"
+    await message.answer("Введите @юзернейм гаранта:")
+
+    dp.register_message_handler(
+        process_exchange_guarantor,
+        state="*"
     )
 
-# =========================
-# ОБРАБОТКА
-# =========================
+async def process_exchange_guarantor(message: types.Message):
 
-@dp.message_handler()
-async def forms(message: types.Message):
-
-    user_id = message.from_user.id
-
-    if user_id not in user_data:
+    if message.from_user.id not in user_data:
         return
 
-    deal_type = user_data[user_id]
+    if user_data[message.from_user.id].get("deal_type") != "Обмен":
+        return
 
-    # =========================
-    # СКУПКА
-    # =========================
+    user_data[message.from_user.id]["guarantor"] = message.text
 
-    if deal_type == "buy":
+    await message.answer(
+        "Введите @юзернейм второго участника:"
+    )
 
-        guarantor = message.text
+    dp.register_message_handler(
+        process_exchange_user,
+        state="*"
+    )
 
-        text = f"""
-<b>📥 Новая заявка</b>
+async def process_exchange_user(message: types.Message):
 
-<b>Тип:</b> Скупка
+    if message.from_user.id not in user_data:
+        return
 
-<b>Пользователь:</b>
-@{message.from_user.username}
+    guarantor = user_data[message.from_user.id]["guarantor"]
+    second_user = message.text
 
-<b>ID:</b>
-<code>{message.from_user.id}</code>
+    username = message.from_user.username
+    user_id = message.from_user.id
 
-<b>Гарант:</b>
-{guarantor}
+    text = f"""
+<b>Новая заявка на обмен</b>
+
+👤 Пользователь: @{username}
+🆔 ID: <code>{user_id}</code>
+
+🛡 Гарант: {guarantor}
+👥 Второй участник: {second_user}
 """
 
-        await bot.send_message(GROUP_ID, text)
+    await bot.send_message(GROUP_ID, text)
 
-        await message.answer(
-            "✅ Заявка отправлена."
-        )
+    await message.answer(
+        "✅ Ваша заявка отправлена администрации."
+    )
 
-        del user_data[user_id]
-
-    # =========================
-    # ОБМЕН
-    # =========================
-
-    elif deal_type == "exchange":
-
-        lines = message.text.splitlines()
-
-        if len(lines) < 2:
-
-            await message.answer(
-                "❌ Неверный формат.\n\n"
-                "@гарант\n"
-                "@второй_участник"
-            )
-
-            return
-
-        guarantor = lines[0]
-        second_user = lines[1]
-
-        text = f"""
-<b>📥 Новая заявка</b>
-
-<b>Тип:</b> Обмен
-
-<b>Создатель:</b>
-@{message.from_user.username}
-
-<b>ID:</b>
-<code>{message.from_user.id}</code>
-
-<b>Второй участник:</b>
-{second_user}
-
-<b>Гарант:</b>
-{guarantor}
-"""
-
-        await bot.send_message(GROUP_ID, text)
-
-        await message.answer(
-            "✅ Заявка на обмен отправлена."
-        )
-
-        del user_data[user_id]
+    del user_data[message.from_user.id]
 
 # =========================
-# ЗАПУСК
+# RUN
 # =========================
 
 if __name__ == "__main__":
-    print("Бот запущен")
-    executor.start_polling(dp, skip_updates=True)    if deal_type == "Скупка":
-
-        guarantor = message.text.strip()
-
-        text = f"""
-<b>📥 Новая заявка</b>
-
-<b>Тип сделки:</b> Скупка
-
-<b>Пользователь:</b>
-@{message.from_user.username}
-
-<b>ID:</b>
-<code>{message.from_user.id}</code>
-
-<b>Гарант:</b>
-{guarantor}
-"""
-
-        await bot.send_message(GROUP_ID, text)
-
-        await message.answer(
-            "✅ Ваша заявка успешно отправлена.\n\n"
-            "Ожидайте ответа гаранта."
-        )
-
-        del user_data[user_id]
-
-    # =========================
-    # ОБМЕН
-    # =========================
-
-    elif deal_type == "Обмен":
-
-        lines = message.text.splitlines()
-
-        if len(lines) < 2:
-            await message.answer(
-                "❌ Неверный формат.\n\n"
-                "Введите:\n"
-                "@гарант\n"
-                "@второй_участник"
-            )
-            return
-
-        guarantor = lines[0].strip()
-        second_user = lines[1].strip()
-
-        text = f"""
-<b>📥 Новая заявка</b>
-
-<b>Тип сделки:</b> Обмен
-
-<b>Создатель заявки:</b>
-@{message.from_user.username}
-
-<b>ID:</b>
-<code>{message.from_user.id}</code>
-
-<b>Второй участник:</b>
-{second_user}
-
-<b>Гарант:</b>
-{guarantor}
-"""
-
-        await bot.send_message(GROUP_ID, text)
-
-        await message.answer(
-            "✅ Заявка на обмен отправлена.\n\n"
-            "После принятия сделки будет создана общая группа."
-        )
-
-        del user_data[user_id]
-
-
-# =========================
-# ЗАПУСК БОТА
-# =========================
-
-async def main():
-    print("Бот запущен")
-    await dp.start_polling(bot)
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+    executor.start_polling(dp, skip_updates=True)
