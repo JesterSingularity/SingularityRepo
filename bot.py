@@ -93,7 +93,7 @@ async def buy_start(message: types.Message):
         "deal_type": "Скупка"
     }
 
-    await message.answer("Введите @юзернейм гаранта(от кого вы перешли в бота):")
+    await message.answer("Введите @юзернейм гаранта\n(от кого вы перешли в бота):")
 
 @dp.message_handler(lambda message:
     message.from_user.id in user_data and
@@ -135,7 +135,7 @@ async def exchange_start(message: types.Message):
         "deal_type": "Обмен"
     }
 
-    await message.answer("Введите @юзернейм гаранта(от кого вы перешли в бота):")
+    await message.answer("Введите @юзернейм гаранта\n(от кого вы перешли в бота):")
 
 @dp.message_handler(lambda message:
     message.from_user.id in user_data and
